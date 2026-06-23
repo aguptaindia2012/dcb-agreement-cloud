@@ -5,6 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>DroCon Bharat — Agreement Studio (Cloud Preview)</title>
 <link href="https://fonts.googleapis.com/css2?family=Lato:ital,wght@0,400;0,700;0,900;1,400&display=swap" rel="stylesheet">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#599533">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="DCB Cloud">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon-180.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
 <style>
 :root{
   --green:#599533; --orange:#F48A1C; --blue:#0A6496; --charcoal:#282828;
@@ -44,6 +51,7 @@ h1{font-size:24px;margin:0 0 4px}
 .chip{display:inline-block;font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;text-transform:uppercase;letter-spacing:.4px}
 .chip.draft{background:#eee;color:#555}
 .chip.in_review{background:#fff0db;color:#9a5b00}
+.chip.recommended{background:#e7e0fb;color:#5b3da8}
 .chip.approved{background:#e3f0d9;color:#3e6b20}
 .chip.rejected{background:#fbe0de;color:#a3322a}
 .chip.executed{background:#dce9f2;color:#0a6496}
@@ -97,6 +105,7 @@ tr.clickable:hover{background:var(--soft-green);cursor:pointer}
     <div class="accentsq"></div>
       <div class="brand"><b>DroCon BHARAT</b><span>Agreement Studio · Cloud</span></div>
     <div class="spacer"></div>
+    <div id="bell" style="position:relative;cursor:pointer;font-size:20px;user-select:none" title="Notifications">🔔<span id="bellCount" style="position:absolute;top:-6px;right:-8px;background:var(--orange);color:#fff;font-size:10px;font-weight:700;border-radius:999px;padding:1px 5px;display:none"></span></div>
     <span class="pill-role" id="meRole">—</span>
     <span class="muted" id="meEmail"></span>
     <button class="btn sm" id="btnSignOut">Sign out</button>
@@ -107,6 +116,18 @@ tr.clickable:hover{background:var(--soft-green);cursor:pointer}
 
 <input type="file" id="jsonImport" accept="application/json" class="hidden">
 
+<div id="notifPanel" class="hidden" style="position:fixed;top:54px;right:14px;width:340px;max-height:70vh;overflow:auto;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 14px 40px rgba(0,0,0,.18);z-index:50">
+  <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line)">
+    <b>Notifications</b><button class="btn sm" id="notifMark">Mark all read</button>
+  </div>
+  <div id="notifList" style="padding:6px 0"></div>
+</div>
+
+<div id="studioOverlay" class="hidden" style="position:fixed;inset:0;background:#fff;z-index:80;display:flex;flex-direction:column">
+  <iframe id="studioFrame" title="Document editor" style="flex:1;border:0;width:100%;height:100%"></iframe>
+</div>
+
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
 <script>
@@ -115,7 +136,7 @@ const esc = s => (s==null?"":String(s)).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"
 const fmt = d => d ? new Date(d).toLocaleString() : "";
 
 let sb=null, me=null, profile=null, signupMode=false, currentTab="agreements";
-const STATUS_LABEL={draft:"Draft",in_review:"In review",approved:"Approved",rejected:"Rejected",executed:"Executed"};
+const STATUS_LABEL={draft:"Draft",in_review:"In review",recommended:"Recommended",approved:"Approved",rejected:"Rejected",executed:"Executed"};
 
 // ---------- boot ----------
 (function boot(){
@@ -129,18 +150,40 @@ const STATUS_LABEL={draft:"Draft",in_review:"In review",approved:"Approved",reje
 })();
 
 function showAuth(){ $("appView").classList.add("hidden"); $("authView").classList.remove("hidden"); }
-async function afterLogin(){
-  // load my profile (created automatically by the DB trigger)
-  let { data, error } = await sb.from("profiles").select("*").eq("id", me.id).single();
-  if(error){ // profile may lag a moment after first signup
-    await new Promise(r=>setTimeout(r,800));
-    ({ data } = await sb.from("profiles").select("*").eq("id", me.id).single());
+
+let _loadingProfile=false;
+async function loadProfile(){
+  // Retry: right after sign-in the auth token can attach a moment after this runs,
+  // so a single read may return nothing under RLS. Try a few times before giving up.
+  for(let i=0;i<8;i++){
+    const { data } = await sb.from("profiles").select("*").eq("id", me.id).maybeSingle();
+    if(data) return data;
+    await new Promise(r=>setTimeout(r, 400));
   }
+  return null;
+}
+async function afterLogin(){
+  if(_loadingProfile) return; _loadingProfile=true;
+  let data=null;
+  try{ data = await loadProfile(); }catch(e){}
+  _loadingProfile=false;
   profile = data || { id:me.id, email:me.email, role:"drafter", full_name:me.email };
   $("authView").classList.add("hidden"); $("appView").classList.remove("hidden");
+  applyProfile();
+}
+function applyProfile(){
   $("meEmail").textContent = profile.email || me.email;
   $("meRole").textContent = (profile.role||"drafter").toUpperCase();
-  renderNav(); openTab("agreements");
+  renderNav();
+  if(!["agreements","new","approvals","templates","team","audit"].includes(currentTab)) currentTab="agreements";
+  openTab(currentTab||"agreements");
+  refreshNotifs();
+  if(!window._notifPoll) window._notifPoll=setInterval(()=>{ if(me) refreshNotifs(); }, 30000);
+}
+// If the role was changed in the DB while signed in, re-pull it without a full re-login.
+async function refreshRole(){
+  const data = await loadProfile();
+  if(data){ profile = data; applyProfile(); }
 }
 
 // ---------- auth UI ----------
@@ -169,6 +212,7 @@ $("auGo").addEventListener("click", async ()=>{
   $("auGo").disabled=false;
 });
 $("btnSignOut").addEventListener("click", async ()=>{ await sb.auth.signOut(); });
+(function(){ const r=$("meRole"); if(r){ r.style.cursor="pointer"; r.title="Click to refresh your role"; r.addEventListener("click", ()=>{ if(me) refreshRole(); }); } })();
 
 // ---------- role helpers ----------
 const isAdmin    = ()=> profile && profile.role==="admin";
@@ -299,9 +343,16 @@ async function viewDetail(id){
   if(error||!r){ $("main").innerHTML='<div class="card">Not found.</div>'; return; }
   const { data:events }=await sb.from("audit_log").select("*, who:actor(full_name,email)").eq("entity","agreement").eq("entity_id",id).order("created_at",{ascending:false});
   const owner = r.created_by===me.id;
-  const canEdit = owner && (r.status==="draft"||r.status==="rejected");
-  const canSubmit = owner && (r.status==="draft"||r.status==="rejected");
-  const canDecide = isApprover() && r.status==="in_review";
+  const isExec = r.status==="executed";
+  // item 2: approvers/admins can open & edit the document (until executed); owner edits own draft/rejected
+  const canEditDoc  = !isExec && ( (owner && (r.status==="draft"||r.status==="rejected")) || isApprover() );
+  const canSubmit   = owner && (r.status==="draft"||r.status==="rejected");
+  // item 1: preparer can't approve own work unless admin; multi-level approvals
+  const adminCanDecide    = isAdmin() && (r.status==="in_review"||r.status==="recommended");
+  const approverCanDecide = profile.role==="approver" && r.status==="in_review" && !owner;
+  const canApprove = adminCanDecide || approverCanDecide;
+  const canReject  = (adminCanDecide || approverCanDecide);
+  const approveLabel = isAdmin() ? "Approve (final)" : "Approve & recommend";
   const canExecute = isApprover() && r.status==="approved";
   const m=$("main");
   m.innerHTML=`<button class="btn sm" id="back">← Back</button>
@@ -311,10 +362,13 @@ async function viewDetail(id){
       <p class="muted">Counterparty: <b>${esc(r.counterparty||"—")}</b> · Template: ${esc(r.template_key||"—")} ·
         Owner: ${esc((r.creator&&(r.creator.full_name||r.creator.email))||"")} ·
         Approver: ${esc((r.approver&&(r.approver.full_name||r.approver.email))||"unassigned")}</p>
+      ${r.status==="recommended"?'<div class="callout">Reviewed and <b>recommended</b> — awaiting an <b>admin</b> for final approval.</div>':''}
       <div class="row" style="flex-wrap:wrap;margin-top:8px">
-        ${canEdit?'<button class="btn sm" id="edit">Edit</button>':''}
+        ${canEditDoc?'<button class="btn green sm" id="editdoc">✎ Open document editor</button>':''}
+        <button class="btn sm" id="editmeta">Edit details</button>
         ${canSubmit?'<button class="btn orange sm" id="submit">Submit for review</button>':''}
-        ${canDecide?'<button class="btn green sm" id="approve">Approve</button> <button class="btn sm" id="reject" style="color:#a3322a;border-color:#e4b4b4">Reject…</button>':''}
+        ${canApprove?`<button class="btn green sm" id="approve">${approveLabel}</button>`:''}
+        ${canReject?'<button class="btn sm" id="reject" style="color:#a3322a;border-color:#e4b4b4">Reject…</button>':''}
         ${canExecute?'<button class="btn blue sm" id="execute">Mark executed (signed)</button>':''}
         ${r.data?'<button class="btn sm" id="dl">Download draft JSON</button>':''}
         ${(isAdmin()||(owner&&r.status==='draft'))?'<button class="btn sm" id="del" style="color:#a3322a;border-color:#e4b4b4">Delete</button>':''}
@@ -324,21 +378,22 @@ async function viewDetail(id){
       ${ (events&&events.length)? events.map(ev=>`<div class="evt"><b>${esc(ev.action)}</b> — ${esc((ev.who&&(ev.who.full_name||ev.who.email))||"")} <span class="muted">· ${fmt(ev.created_at)}</span>${ev.note?`<br>${esc(ev.note)}`:""}</div>`).join("") : '<div class="muted">No history yet.</div>' }
     </div>`;
   $("back").addEventListener("click",()=>openTab(currentTab==="approvals"?"approvals":"agreements"));
-  if($("edit")) $("edit").addEventListener("click",()=>viewForm(r));
-  if($("submit")) $("submit").addEventListener("click",()=>transition(r,"in_review","submitted","Submitted for review"));
-  if($("approve")) $("approve").addEventListener("click",()=>transition(r,"approved","approved","Approved"));
-  if($("reject")) $("reject").addEventListener("click",()=>{ const note=prompt("Reason for rejection:")||""; transition(r,"rejected","rejected",note); });
-  if($("execute")) $("execute").addEventListener("click",()=>transition(r,"executed","executed","Marked executed (signed)"));
+  if($("editdoc")) $("editdoc").addEventListener("click",()=>openStudio(r));
+  if($("editmeta")) $("editmeta").addEventListener("click",()=>viewForm(r));
+  if($("submit")) $("submit").addEventListener("click",()=>runRpc("submit_for_review",{p_id:r.id},r.id));
+  if($("approve")) $("approve").addEventListener("click",()=>runRpc("approve_agreement",{p_id:r.id,p_note:null},r.id));
+  if($("reject")) $("reject").addEventListener("click",()=>{ const note=prompt("Reason for rejection / changes requested:"); if(note===null) return; runRpc("reject_agreement",{p_id:r.id,p_note:note||null},r.id); });
+  if($("execute")) $("execute").addEventListener("click",()=>runRpc("mark_executed",{p_id:r.id,p_note:null},r.id));
   if($("dl")) $("dl").addEventListener("click",()=>{ const blob=new Blob([JSON.stringify({draft:r.data},null,2)],{type:"application/json"});
     const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=(r.title||"agreement")+".json"; a.click(); });
   if($("del")) $("del").addEventListener("click",async()=>{ if(!confirm("Delete this agreement?"))return;
     await sb.from("agreements").delete().eq("id",id); await audit("deleted","agreement",id,r.title); openTab("agreements"); });
 }
-async function transition(r,newStatus,action,note){
-  const { error }=await sb.from("agreements").update({ status:newStatus }).eq("id",r.id);
+async function runRpc(fn, args, agId){
+  const { error }=await sb.rpc(fn, args);
   if(error){ alert(error.message); return; }
-  await audit(action,"agreement",r.id,note);
-  viewDetail(r.id);
+  refreshNotifs();
+  viewDetail(agId);
 }
 
 async function viewTeam(){
@@ -388,6 +443,73 @@ async function viewAudit(){
     ${data.map(e=>`<tr><td class="muted">${fmt(e.created_at)}</td><td>${esc((e.who&&(e.who.full_name||e.who.email))||"")}</td><td><b>${esc(e.action)}</b></td><td>${esc(e.entity)} ${esc(e.entity_id||"")}</td><td>${esc(e.note||"")}</td></tr>`).join("")}
   </tbody></table>`:'<div class="muted">No activity yet.</div>';
 }
+
+/* ===================== Embedded document editor (full Studio) ===================== */
+let currentEdit=null;
+function openStudio(r){
+  currentEdit=r;
+  const f=$("studioFrame");
+  f.src="studio.html?ts="+Date.now();   // fresh load each time
+  $("studioOverlay").classList.remove("hidden");
+}
+function closeStudio(){ $("studioOverlay").classList.add("hidden"); $("studioFrame").src="about:blank"; if(currentEdit){ const id=currentEdit.id; currentEdit=null; viewDetail(id); } }
+async function saveStudioDraft(d){
+  if(!currentEdit||!d) return;
+  const patch={ data:d };
+  // keep the record's headline fields in sync with the drafted document
+  try{
+    if(d.title && (!currentEdit.title || currentEdit.title===currentEdit.template_key)) patch.title=d.title;
+    const cp=d.fields&&d.fields.cpName; if(cp) patch.counterparty=cp;
+  }catch(e){}
+  const { error }=await sb.from("agreements").update(patch).eq("id",currentEdit.id);
+  if(error){ alert("Save failed: "+error.message); return; }
+  currentEdit=Object.assign(currentEdit,patch);
+  await audit("edited","agreement",currentEdit.id,"document updated in editor");
+  flashTop("Saved to cloud ✓");
+}
+window.addEventListener("message",function(ev){
+  const f=$("studioFrame"); if(!f || ev.source!==f.contentWindow) return;   // only our editor
+  const m=ev.data||{};
+  if(m.type==="dcb-ready"){ f.contentWindow.postMessage({type:"dcb-load", draft: currentEdit?currentEdit.data:null}, "*"); }
+  else if(m.type==="dcb-save"){ saveStudioDraft(m.draft); }
+  else if(m.type==="dcb-close"){ closeStudio(); }
+});
+
+/* ===================== Notifications ===================== */
+let _notifs=[];
+async function refreshNotifs(){
+  if(!me) return;
+  const { data }=await sb.from("notifications").select("*").order("created_at",{ascending:false}).limit(50);
+  _notifs=data||[];
+  const unread=_notifs.filter(n=>!n.is_read).length;
+  const c=$("bellCount"); if(c){ c.textContent=unread; c.style.display=unread?"inline-block":"none"; }
+}
+function renderNotifs(){
+  const host=$("notifList"); if(!host) return;
+  host.innerHTML = _notifs.length ? _notifs.map(n=>`<div data-nid="${n.id}" data-ag="${n.agreement_id||''}" style="padding:9px 14px;border-bottom:1px solid var(--line);cursor:pointer;${n.is_read?'opacity:.6':'background:#fbfdf8'}">
+      <div style="font-size:13px">${esc(n.message)}</div><div class="muted" style="font-size:11px">${fmt(n.created_at)}</div></div>`).join("")
+    : '<div class="muted" style="padding:14px">No notifications.</div>';
+  host.querySelectorAll("[data-nid]").forEach(el=>el.addEventListener("click",async()=>{
+    const nid=el.getAttribute("data-nid"), ag=el.getAttribute("data-ag");
+    await sb.from("notifications").update({is_read:true}).eq("id",nid);
+    $("notifPanel").classList.add("hidden"); refreshNotifs();
+    if(ag) viewDetail(ag);
+  }));
+}
+function toggleNotif(){ const p=$("notifPanel"); if(p.classList.contains("hidden")){ renderNotifs(); p.classList.remove("hidden"); } else p.classList.add("hidden"); }
+async function markAllRead(){ await sb.from("notifications").update({is_read:true}).eq("user_id",me.id).eq("is_read",false); refreshNotifs(); renderNotifs(); }
+function flashTop(msg){ let t=$("toast"); if(!t){ t=document.createElement("div"); t.id="toast"; t.style.cssText="position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--green);color:#fff;padding:9px 16px;border-radius:8px;font-weight:700;z-index:120;box-shadow:0 8px 20px rgba(0,0,0,.25)"; document.body.appendChild(t); } t.textContent=msg; t.style.opacity="1"; setTimeout(()=>{ t.style.transition="opacity .5s"; t.style.opacity="0"; },1800); }
+
+(function(){ const b=$("bell"); if(b) b.addEventListener("click",toggleNotif);
+  const mk=$("notifMark"); if(mk) mk.addEventListener("click",markAllRead); })();
+
+/* refresh notifications after login and every 30s (wired in applyProfile) */
+
+/* ===================== PWA install (Windows / Android) ===================== */
+if("serviceWorker" in navigator && (location.protocol==="https:"||location.protocol==="http:")){
+  window.addEventListener("load",()=>navigator.serviceWorker.register("./service-worker.js").catch(()=>{}));
+}
 </script>
+
 </body>
 </html>
