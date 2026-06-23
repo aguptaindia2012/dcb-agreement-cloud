@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DroCon Bharat — Agreement Studio (Cloud Preview)</title>
+<link href="https://fonts.googleapis.com/css2?family=Lato:ital,wght@0,400;0,700;0,900;1,400&display=swap" rel="stylesheet">
+<style>
+:root{
+  --green:#599533; --orange:#F48A1C; --blue:#0A6496; --charcoal:#282828;
+  --soft-green:#EEF5E9; --cream:#FFF4EC; --grey:#F5F5F5; --line:#e2e6df; --muted:#7a8071;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:Lato,system-ui,Arial,sans-serif;color:var(--charcoal);background:#fbfcfa}
+.hidden{display:none !important}
+a{color:var(--blue)}
+.btn{font-family:inherit;font-size:13px;font-weight:700;border:1px solid var(--line);background:#fff;color:var(--charcoal);
+  border-radius:8px;padding:8px 14px;cursor:pointer}
+.btn:hover{border-color:#cdd3c8}
+.btn.green{background:var(--green);color:#fff;border-color:var(--green)}
+.btn.blue{background:var(--blue);color:#fff;border-color:var(--blue)}
+.btn.orange{background:var(--orange);color:#fff;border-color:var(--orange)}
+.btn.sm{padding:5px 10px;font-size:12px}
+.btn.grey{background:var(--grey)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+input,select,textarea{font-family:inherit;font-size:14px;width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;background:#fff}
+textarea{min-height:90px;resize:vertical}
+label{font-size:12px;font-weight:700;display:block;margin-bottom:4px}
+.field{margin-bottom:12px}
+.row{display:flex;gap:10px;align-items:center}
+.spacer{flex:1}
+.topbar{display:flex;align-items:center;gap:12px;padding:12px 22px;background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:10}
+.topbar .accentsq{width:9px;height:9px;background:var(--orange);border-radius:2px}
+.topbar img{height:30px}
+.brand b{color:var(--green);font-weight:900;letter-spacing:.3px}
+.brand span{display:block;font-size:10px;color:var(--orange);font-weight:700;text-transform:uppercase;letter-spacing:2px}
+.nav{display:flex;gap:4px;padding:0 18px;background:#fff;border-bottom:1px solid var(--line)}
+.nav button{background:none;border:none;border-bottom:3px solid transparent;padding:11px 14px;font-weight:700;font-size:13px;color:var(--muted);cursor:pointer}
+.nav button.active{color:var(--green);border-bottom-color:var(--green)}
+.wrap{max-width:1000px;margin:0 auto;padding:22px 18px 60px}
+h1{font-size:24px;margin:0 0 4px}
+.eyebrow{color:var(--orange);font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:700}
+.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:12px}
+.chip{display:inline-block;font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;text-transform:uppercase;letter-spacing:.4px}
+.chip.draft{background:#eee;color:#555}
+.chip.in_review{background:#fff0db;color:#9a5b00}
+.chip.approved{background:#e3f0d9;color:#3e6b20}
+.chip.rejected{background:#fbe0de;color:#a3322a}
+.chip.executed{background:#dce9f2;color:#0a6496}
+.tag{display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:6px;background:var(--green);color:#fff;text-transform:uppercase;letter-spacing:.5px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{text-align:left;padding:10px 8px;border-bottom:1px solid var(--line)}
+th{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)}
+tr.clickable:hover{background:var(--soft-green);cursor:pointer}
+.callout{background:var(--soft-green);border-left:3px solid var(--green);padding:10px 12px;border-radius:6px;font-size:13px;margin-bottom:14px}
+.callout.warn{background:var(--cream);border-left-color:var(--orange)}
+.muted{color:var(--muted);font-size:12px}
+.authwrap{max-width:380px;margin:8vh auto;padding:26px;background:#fff;border:1px solid var(--line);border-radius:14px;border-top:5px solid var(--green)}
+.authwrap h1{font-size:20px}
+.err{color:#a3322a;font-size:13px;margin-top:8px;min-height:16px}
+.ok{color:var(--green)}
+.fgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.fgrid .full{grid-column:1/-1}
+.evt{font-size:12px;padding:7px 0;border-bottom:1px dashed var(--line)}
+.evt b{color:var(--charcoal)}
+.pill-role{font-size:11px;background:var(--grey);border:1px solid var(--line);border-radius:999px;padding:3px 10px;font-weight:700}
+@media(max-width:640px){.fgrid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<!-- ============ AUTH ============ -->
+<div id="authView">
+  <div class="authwrap">
+    <div class="row" style="gap:8px;margin-bottom:14px">
+      <div class="accentsq" style="width:10px;height:10px;background:var(--orange);border-radius:2px"></div>
+      <div class="brand"><b>DroCon BHARAT</b><span>Agreement Studio · Cloud</span></div>
+    </div>
+    <h1 id="authTitle">Sign in</h1>
+    <p class="muted" id="authSub">Use your work email to access the shared agreement workspace.</p>
+    <div class="field"><label>Full name</label><input id="auName" placeholder="Your name" class="hidden"></div>
+    <div class="field"><label>Email</label><input id="auEmail" type="email" placeholder="you@droconbharat.com"></div>
+    <div class="field"><label>Password</label><input id="auPass" type="password" placeholder="••••••••"></div>
+    <button class="btn green" id="auGo" style="width:100%">Sign in</button>
+    <div class="err" id="auErr"></div>
+    <p class="muted" style="margin-top:14px">
+      <span id="auToggleText">New to the workspace?</span>
+      <a href="#" id="auToggle">Create an account</a>
+    </p>
+    <p class="muted" id="auConfigWarn" style="color:#a3322a"></p>
+  </div>
+</div>
+
+<!-- ============ APP ============ -->
+<div id="appView" class="hidden">
+  <div class="topbar">
+    <div class="accentsq"></div>
+      <div class="brand"><b>DroCon BHARAT</b><span>Agreement Studio · Cloud</span></div>
+    <div class="spacer"></div>
+    <span class="pill-role" id="meRole">—</span>
+    <span class="muted" id="meEmail"></span>
+    <button class="btn sm" id="btnSignOut">Sign out</button>
+  </div>
+  <div class="nav" id="nav"></div>
+  <div class="wrap" id="main"></div>
+</div>
+
+<input type="file" id="jsonImport" accept="application/json" class="hidden">
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => (s==null?"":String(s)).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const fmt = d => d ? new Date(d).toLocaleString() : "";
+
+let sb=null, me=null, profile=null, signupMode=false, currentTab="agreements";
+const STATUS_LABEL={draft:"Draft",in_review:"In review",approved:"Approved",rejected:"Rejected",executed:"Executed"};
+
+// ---------- boot ----------
+(function boot(){
+  if(!window.DCB_CONFIG || !window.DCB_CONFIG.SUPABASE_URL || window.DCB_CONFIG.SUPABASE_URL.indexOf("YOUR-")>=0){
+    $("auConfigWarn").textContent="⚠ config.js is missing your Supabase URL/key. See SETUP_BACKEND.md.";
+    $("auGo").disabled=true; return;
+  }
+  sb = supabase.createClient(window.DCB_CONFIG.SUPABASE_URL, window.DCB_CONFIG.SUPABASE_ANON_KEY);
+  sb.auth.onAuthStateChange((_e, session)=>{ me = session ? session.user : null; if(me) afterLogin(); else showAuth(); });
+  sb.auth.getSession().then(({data})=>{ me = data.session ? data.session.user : null; if(me) afterLogin(); else showAuth(); });
+})();
+
+function showAuth(){ $("appView").classList.add("hidden"); $("authView").classList.remove("hidden"); }
+async function afterLogin(){
+  // load my profile (created automatically by the DB trigger)
+  let { data, error } = await sb.from("profiles").select("*").eq("id", me.id).single();
+  if(error){ // profile may lag a moment after first signup
+    await new Promise(r=>setTimeout(r,800));
+    ({ data } = await sb.from("profiles").select("*").eq("id", me.id).single());
+  }
+  profile = data || { id:me.id, email:me.email, role:"drafter", full_name:me.email };
+  $("authView").classList.add("hidden"); $("appView").classList.remove("hidden");
+  $("meEmail").textContent = profile.email || me.email;
+  $("meRole").textContent = (profile.role||"drafter").toUpperCase();
+  renderNav(); openTab("agreements");
+}
+
+// ---------- auth UI ----------
+$("auToggle").addEventListener("click",e=>{ e.preventDefault(); signupMode=!signupMode;
+  $("authTitle").textContent = signupMode?"Create account":"Sign in";
+  $("auGo").textContent = signupMode?"Create account":"Sign in";
+  $("auName").classList.toggle("hidden", !signupMode);
+  $("auToggleText").textContent = signupMode?"Already have an account?":"New to the workspace?";
+  $("auToggle").textContent = signupMode?"Sign in":"Create an account";
+  $("auErr").textContent="";
+});
+$("auGo").addEventListener("click", async ()=>{
+  const email=$("auEmail").value.trim(), pass=$("auPass").value;
+  $("auErr").textContent=""; if(!email||!pass){ $("auErr").textContent="Enter email and password."; return; }
+  $("auGo").disabled=true;
+  try{
+    if(signupMode){
+      const { error } = await sb.auth.signUp({ email, password:pass, options:{ data:{ full_name:$("auName").value.trim() } } });
+      if(error) throw error;
+      $("auErr").innerHTML='<span class="ok">Account created. If email confirmation is on, check your inbox; otherwise you are now signed in.</span>';
+    }else{
+      const { error } = await sb.auth.signInWithPassword({ email, password:pass });
+      if(error) throw error;
+    }
+  }catch(err){ $("auErr").textContent = err.message || "Authentication failed."; }
+  $("auGo").disabled=false;
+});
+$("btnSignOut").addEventListener("click", async ()=>{ await sb.auth.signOut(); });
+
+// ---------- role helpers ----------
+const isAdmin    = ()=> profile && profile.role==="admin";
+const isApprover = ()=> profile && (profile.role==="admin"||profile.role==="approver");
+
+// ---------- nav ----------
+function renderNav(){
+  const tabs=[["agreements","Agreements"],["new","New agreement"]];
+  if(isApprover()) tabs.push(["approvals","Approvals"]);
+  if(isApprover()) tabs.push(["templates","Shared templates"]);
+  if(isAdmin())   tabs.push(["team","Team & roles"]);
+  if(isAdmin())   tabs.push(["audit","Audit log"]);
+  $("nav").innerHTML = tabs.map(t=>`<button data-tab="${t[0]}" class="${t[0]===currentTab?'active':''}">${t[1]}</button>`).join("");
+  document.querySelectorAll("#nav button").forEach(b=>b.addEventListener("click",()=>openTab(b.getAttribute("data-tab"))));
+}
+function openTab(t){ currentTab=t; renderNav();
+  if(t==="agreements") viewAgreements();
+  else if(t==="new") viewForm();
+  else if(t==="approvals") viewApprovals();
+  else if(t==="templates") viewTemplates();
+  else if(t==="team") viewTeam();
+  else if(t==="audit") viewAudit();
+}
+
+// ---------- data ----------
+async function listAgreements(filter){
+  let q = sb.from("agreements").select("*, creator:created_by(full_name,email), approver:assigned_approver(full_name,email)").order("updated_at",{ascending:false});
+  if(filter==="mine") q=q.eq("created_by", me.id);
+  if(filter==="review") q=q.eq("status","in_review");
+  const { data, error } = await q;
+  if(error){ console.error(error); return []; }
+  return data||[];
+}
+async function audit(action, entity, entity_id, note){
+  try{ await sb.from("audit_log").insert({ actor:me.id, action, entity, entity_id:String(entity_id||""), note:note||null }); }catch(e){}
+}
+async function listProfiles(){ const {data}=await sb.from("profiles").select("*").order("created_at"); return data||[]; }
+
+// ---------- views ----------
+function statusChip(s){ return `<span class="chip ${s}">${STATUS_LABEL[s]||s}</span>`; }
+
+async function viewAgreements(){
+  const m=$("main"); m.innerHTML=`<div class="eyebrow">Workspace</div><h1>Agreements</h1>
+    <div class="row" style="margin:10px 0"><button class="btn sm" data-f="all">All</button>
+    <button class="btn sm" data-f="mine">Mine</button>
+    <button class="btn sm" data-f="review">In review</button>
+    <div class="spacer"></div><button class="btn green sm" id="newBtn">+ New agreement</button></div>
+    <div id="listHost" class="muted">Loading…</div>`;
+  $("newBtn").addEventListener("click",()=>openTab("new"));
+  m.querySelectorAll("[data-f]").forEach(b=>b.addEventListener("click",()=>load(b.getAttribute("data-f"))));
+  async function load(f){
+    const rows=await listAgreements(f==="all"?null:f);
+    $("listHost").innerHTML = rows.length? `<table><thead><tr><th>Title</th><th>Counterparty</th><th>Type</th><th>Status</th><th>Owner</th><th>Updated</th></tr></thead>
+      <tbody>${rows.map(r=>`<tr class="clickable" data-id="${r.id}">
+        <td><b>${esc(r.title)}</b></td><td>${esc(r.counterparty||"")}</td><td>${esc(r.category||"")}</td>
+        <td>${statusChip(r.status)}</td><td>${esc((r.creator&&(r.creator.full_name||r.creator.email))||"")}</td><td class="muted">${fmt(r.updated_at)}</td>
+      </tr>`).join("")}</tbody></table>` : '<div class="card muted">No agreements yet. Click “New agreement”.</div>';
+    $("listHost").querySelectorAll("[data-id]").forEach(tr=>tr.addEventListener("click",()=>viewDetail(tr.getAttribute("data-id"))));
+  }
+  load("all");
+}
+
+async function viewApprovals(){
+  const m=$("main"); m.innerHTML=`<div class="eyebrow">Review queue</div><h1>Approvals</h1>
+    <p class="muted">Agreements submitted for review. Approve or reject with a note.</p><div id="listHost" class="muted">Loading…</div>`;
+  const rows=await listAgreements("review");
+  $("listHost").innerHTML = rows.length? `<table><thead><tr><th>Title</th><th>Counterparty</th><th>Owner</th><th>Submitted</th><th></th></tr></thead>
+    <tbody>${rows.map(r=>`<tr class="clickable" data-id="${r.id}"><td><b>${esc(r.title)}</b></td><td>${esc(r.counterparty||"")}</td>
+      <td>${esc((r.creator&&(r.creator.full_name||r.creator.email))||"")}</td><td class="muted">${fmt(r.updated_at)}</td>
+      <td><button class="btn sm">Open</button></td></tr>`).join("")}</tbody></table>` : '<div class="card muted">Nothing awaiting review. 🎉</div>';
+  $("listHost").querySelectorAll("[data-id]").forEach(tr=>tr.addEventListener("click",()=>viewDetail(tr.getAttribute("data-id"))));
+}
+
+function viewForm(existing){
+  const e=existing||{};
+  const m=$("main"); m.innerHTML=`<div class="eyebrow">${existing?"Edit":"Create"}</div><h1>${existing?"Edit agreement":"New agreement"}</h1>
+    <div class="card">
+    <div class="fgrid">
+      <div class="field full"><label>Title</label><input id="fTitle" value="${esc(e.title||"")}" placeholder="e.g. Aggregator Agreement — Acme"></div>
+      <div class="field"><label>Counterparty</label><input id="fCp" value="${esc(e.counterparty||"")}"></div>
+      <div class="field"><label>Type</label><select id="fCat">
+        ${["client","vendor","module"].map(c=>`<option ${e.category===c?'selected':''}>${c}</option>`).join("")}</select></div>
+      <div class="field"><label>Template key (optional)</label><input id="fTpl" value="${esc(e.template_key||"")}" placeholder="aggregator / entrepreneur / pm_engagement…"></div>
+      <div class="field"><label>Assign approver</label><select id="fApp"></select></div>
+      <div class="field full"><label>Draft data (JSON from the desktop Studio — optional)</label>
+        <textarea id="fData" placeholder='Paste a "Save JSON draft" export here, or use Import.'>${e.data?esc(JSON.stringify(e.data,null,2)):""}</textarea>
+        <div class="row" style="margin-top:6px"><button class="btn sm" id="impBtn">Import JSON file…</button>
+        <span class="muted">Links this record to a draft built in the offline Studio.</span></div>
+      </div>
+    </div>
+    <div class="row"><button class="btn green" id="saveBtn">${existing?"Save changes":"Create (as Draft)"}</button>
+      <button class="btn" id="cancelBtn">Cancel</button></div>
+    <div class="err" id="fErr"></div>
+    </div>`;
+  // approver dropdown
+  listProfiles().then(ps=>{
+    const approvers=ps.filter(p=>p.role==="approver"||p.role==="admin");
+    $("fApp").innerHTML = '<option value="">— none —</option>'+approvers.map(p=>`<option value="${p.id}" ${e.assigned_approver===p.id?'selected':''}>${esc(p.full_name||p.email)} (${p.role})</option>`).join("");
+  });
+  $("impBtn").addEventListener("click",()=>{ $("jsonImport").onchange=ev=>{ const f=ev.target.files[0]; if(!f)return;
+    const r=new FileReader(); r.onload=()=>{ try{ const o=JSON.parse(r.result); $("fData").value=JSON.stringify(o.draft||o,null,2);
+      if(!$("fTitle").value && o.draft){ $("fTitle").value=(o.draft.title||"")+" — "+((o.draft.fields&&o.draft.fields.cpName)||""); }
+    }catch(err){ alert("Not valid JSON"); } }; r.readAsText(f); $("jsonImport").value=""; }; $("jsonImport").click();
+  });
+  $("cancelBtn").addEventListener("click",()=>openTab("agreements"));
+  $("saveBtn").addEventListener("click",async()=>{
+    const title=$("fTitle").value.trim(); if(!title){ $("fErr").textContent="Title is required."; return; }
+    let data=null; const raw=$("fData").value.trim(); if(raw){ try{ data=JSON.parse(raw); }catch(e){ $("fErr").textContent="Draft data is not valid JSON."; return; } }
+    const rec={ title, counterparty:$("fCp").value.trim(), category:$("fCat").value, template_key:$("fTpl").value.trim()||null,
+      assigned_approver:$("fApp").value||null, data };
+    if(existing){
+      const { error }=await sb.from("agreements").update(rec).eq("id",existing.id);
+      if(error){ $("fErr").textContent=error.message; return; }
+      await audit("edited","agreement",existing.id,"edited fields");
+      viewDetail(existing.id);
+    }else{
+      rec.created_by=me.id; rec.status="draft";
+      const { data:ins, error }=await sb.from("agreements").insert(rec).select().single();
+      if(error){ $("fErr").textContent=error.message; return; }
+      await audit("created","agreement",ins.id,title);
+      viewDetail(ins.id);
+    }
+  });
+}
+
+async function viewDetail(id){
+  const { data:r, error }=await sb.from("agreements").select("*, creator:created_by(full_name,email), approver:assigned_approver(full_name,email)").eq("id",id).single();
+  if(error||!r){ $("main").innerHTML='<div class="card">Not found.</div>'; return; }
+  const { data:events }=await sb.from("audit_log").select("*, who:actor(full_name,email)").eq("entity","agreement").eq("entity_id",id).order("created_at",{ascending:false});
+  const owner = r.created_by===me.id;
+  const canEdit = owner && (r.status==="draft"||r.status==="rejected");
+  const canSubmit = owner && (r.status==="draft"||r.status==="rejected");
+  const canDecide = isApprover() && r.status==="in_review";
+  const canExecute = isApprover() && r.status==="approved";
+  const m=$("main");
+  m.innerHTML=`<button class="btn sm" id="back">← Back</button>
+    <div class="card" style="margin-top:12px">
+      <div class="row"><div><div class="eyebrow">${esc(r.category||"")}</div><h1 style="margin:2px 0">${esc(r.title)}</h1></div>
+        <div class="spacer"></div>${statusChip(r.status)}</div>
+      <p class="muted">Counterparty: <b>${esc(r.counterparty||"—")}</b> · Template: ${esc(r.template_key||"—")} ·
+        Owner: ${esc((r.creator&&(r.creator.full_name||r.creator.email))||"")} ·
+        Approver: ${esc((r.approver&&(r.approver.full_name||r.approver.email))||"unassigned")}</p>
+      <div class="row" style="flex-wrap:wrap;margin-top:8px">
+        ${canEdit?'<button class="btn sm" id="edit">Edit</button>':''}
+        ${canSubmit?'<button class="btn orange sm" id="submit">Submit for review</button>':''}
+        ${canDecide?'<button class="btn green sm" id="approve">Approve</button> <button class="btn sm" id="reject" style="color:#a3322a;border-color:#e4b4b4">Reject…</button>':''}
+        ${canExecute?'<button class="btn blue sm" id="execute">Mark executed (signed)</button>':''}
+        ${r.data?'<button class="btn sm" id="dl">Download draft JSON</button>':''}
+        ${(isAdmin()||(owner&&r.status==='draft'))?'<button class="btn sm" id="del" style="color:#a3322a;border-color:#e4b4b4">Delete</button>':''}
+      </div>
+    </div>
+    <div class="card"><h3 style="margin:0 0 8px">History</h3>
+      ${ (events&&events.length)? events.map(ev=>`<div class="evt"><b>${esc(ev.action)}</b> — ${esc((ev.who&&(ev.who.full_name||ev.who.email))||"")} <span class="muted">· ${fmt(ev.created_at)}</span>${ev.note?`<br>${esc(ev.note)}`:""}</div>`).join("") : '<div class="muted">No history yet.</div>' }
+    </div>`;
+  $("back").addEventListener("click",()=>openTab(currentTab==="approvals"?"approvals":"agreements"));
+  if($("edit")) $("edit").addEventListener("click",()=>viewForm(r));
+  if($("submit")) $("submit").addEventListener("click",()=>transition(r,"in_review","submitted","Submitted for review"));
+  if($("approve")) $("approve").addEventListener("click",()=>transition(r,"approved","approved","Approved"));
+  if($("reject")) $("reject").addEventListener("click",()=>{ const note=prompt("Reason for rejection:")||""; transition(r,"rejected","rejected",note); });
+  if($("execute")) $("execute").addEventListener("click",()=>transition(r,"executed","executed","Marked executed (signed)"));
+  if($("dl")) $("dl").addEventListener("click",()=>{ const blob=new Blob([JSON.stringify({draft:r.data},null,2)],{type:"application/json"});
+    const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=(r.title||"agreement")+".json"; a.click(); });
+  if($("del")) $("del").addEventListener("click",async()=>{ if(!confirm("Delete this agreement?"))return;
+    await sb.from("agreements").delete().eq("id",id); await audit("deleted","agreement",id,r.title); openTab("agreements"); });
+}
+async function transition(r,newStatus,action,note){
+  const { error }=await sb.from("agreements").update({ status:newStatus }).eq("id",r.id);
+  if(error){ alert(error.message); return; }
+  await audit(action,"agreement",r.id,note);
+  viewDetail(r.id);
+}
+
+async function viewTeam(){
+  const m=$("main"); m.innerHTML=`<div class="eyebrow">Administration</div><h1>Team &amp; roles</h1>
+    <div class="callout">The first person to sign up is the <b>admin</b>. Assign roles here to onboard the team. Roles: <b>admin</b> (everything), <b>approver</b> (review &amp; approve, edit shared templates), <b>drafter</b> (create &amp; submit), <b>viewer</b> (read-only).</div>
+    <div id="teamHost" class="muted">Loading…</div>`;
+  const ps=await listProfiles();
+  $("teamHost").innerHTML=`<table><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Joined</th></tr></thead><tbody>
+    ${ps.map(p=>`<tr><td>${esc(p.full_name||"")}</td><td>${esc(p.email||"")}</td>
+      <td><select data-uid="${p.id}" ${p.id===me.id?'disabled':''}>
+        ${["admin","approver","drafter","viewer"].map(r=>`<option value="${r}" ${p.role===r?'selected':''}>${r}</option>`).join("")}
+      </select></td><td class="muted">${fmt(p.created_at)}</td></tr>`).join("")}
+  </tbody></table><p class="muted">Tip: you cannot change your own role (prevents lock-out). Ask another admin.</p>`;
+  $("teamHost").querySelectorAll("select[data-uid]").forEach(s=>s.addEventListener("change",async()=>{
+    const { error }=await sb.rpc("admin_set_role",{ target:s.getAttribute("data-uid"), new_role:s.value });
+    if(error) alert(error.message); else { s.style.borderColor="var(--green)"; }
+  }));
+}
+
+async function viewTemplates(){
+  const m=$("main"); m.innerHTML=`<div class="eyebrow">Standards</div><h1>Shared templates</h1>
+    <div class="callout">Saved here, a template's clauses become the standard for the <b>whole team</b>. (This preview stores the clause set as JSON; the full clause editor from the desktop Studio plugs in here.)</div>
+    <div class="field"><label>Template key</label><input id="tKey" placeholder="aggregator"></div>
+    <div class="field"><label>Clauses (JSON array)</label><textarea id="tJson" style="min-height:200px" placeholder='[ { "id":"scope", "title":"Scope", "body":"<p>…</p>", "on":true } ]'></textarea></div>
+    <div class="row"><button class="btn sm" id="tLoad">Load</button><button class="btn green sm" id="tSave">Save to team</button></div>
+    <div class="err" id="tErr"></div>
+    <h3 style="margin-top:20px">Current shared templates</h3><div id="tList" class="muted">Loading…</div>`;
+  async function refresh(){ const { data }=await sb.from("template_overrides").select("template_key, updated_at, updater:updated_by(full_name,email)").order("updated_at",{ascending:false});
+    $("tList").innerHTML=(data&&data.length)? `<table><thead><tr><th>Template</th><th>Updated by</th><th>When</th></tr></thead><tbody>${data.map(x=>`<tr><td><b>${esc(x.template_key)}</b></td><td>${esc((x.updater&&(x.updater.full_name||x.updater.email))||"")}</td><td class="muted">${fmt(x.updated_at)}</td></tr>`).join("")}</tbody></table>`:'<div class="muted">No shared overrides yet.</div>'; }
+  $("tLoad").addEventListener("click",async()=>{ const k=$("tKey").value.trim(); if(!k)return;
+    const { data }=await sb.from("template_overrides").select("clauses").eq("template_key",k).single();
+    $("tJson").value = data? JSON.stringify(data.clauses,null,2) : ""; if(!data) $("tErr").textContent="No override for that key yet — paste clauses to create one."; else $("tErr").textContent=""; });
+  $("tSave").addEventListener("click",async()=>{ const k=$("tKey").value.trim(); let clauses;
+    try{ clauses=JSON.parse($("tJson").value); }catch(e){ $("tErr").textContent="Clauses must be valid JSON."; return; }
+    if(!k){ $("tErr").textContent="Template key required."; return; }
+    const { error }=await sb.from("template_overrides").upsert({ template_key:k, clauses, updated_by:me.id, updated_at:new Date().toISOString() });
+    if(error){ $("tErr").textContent=error.message; return; }
+    await audit("template_saved","template",k,"updated shared clauses"); $("tErr").innerHTML='<span class="ok">Saved for the team.</span>'; refresh();
+  });
+  refresh();
+}
+
+async function viewAudit(){
+  const m=$("main"); m.innerHTML=`<div class="eyebrow">Compliance</div><h1>Audit log</h1><div id="aHost" class="muted">Loading…</div>`;
+  const { data }=await sb.from("audit_log").select("*, who:actor(full_name,email)").order("created_at",{ascending:false}).limit(200);
+  $("aHost").innerHTML=(data&&data.length)? `<table><thead><tr><th>When</th><th>Who</th><th>Action</th><th>Entity</th><th>Note</th></tr></thead><tbody>
+    ${data.map(e=>`<tr><td class="muted">${fmt(e.created_at)}</td><td>${esc((e.who&&(e.who.full_name||e.who.email))||"")}</td><td><b>${esc(e.action)}</b></td><td>${esc(e.entity)} ${esc(e.entity_id||"")}</td><td>${esc(e.note||"")}</td></tr>`).join("")}
+  </tbody></table>`:'<div class="muted">No activity yet.</div>';
+}
+</script>
+</body>
+</html>
