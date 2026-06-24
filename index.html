@@ -123,10 +123,6 @@ tr.clickable:hover{background:var(--soft-green);cursor:pointer}
   <div id="notifList" style="padding:6px 0"></div>
 </div>
 
-<div id="studioOverlay" class="hidden" style="position:fixed;inset:0;background:#fff;z-index:80;display:flex;flex-direction:column">
-  <iframe id="studioFrame" title="Document editor" style="flex:1;border:0;width:100%;height:100%"></iframe>
-</div>
-
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
@@ -230,7 +226,7 @@ function renderNav(){
 }
 function openTab(t){ currentTab=t; renderNav();
   if(t==="agreements") viewAgreements();
-  else if(t==="new") viewForm();
+  else if(t==="new") viewStudio(null);
   else if(t==="approvals") viewApprovals();
   else if(t==="templates") viewTemplates();
   else if(t==="team") viewTeam();
@@ -378,7 +374,7 @@ async function viewDetail(id){
       ${ (events&&events.length)? events.map(ev=>`<div class="evt"><b>${esc(ev.action)}</b> — ${esc((ev.who&&(ev.who.full_name||ev.who.email))||"")} <span class="muted">· ${fmt(ev.created_at)}</span>${ev.note?`<br>${esc(ev.note)}`:""}</div>`).join("") : '<div class="muted">No history yet.</div>' }
     </div>`;
   $("back").addEventListener("click",()=>openTab(currentTab==="approvals"?"approvals":"agreements"));
-  if($("editdoc")) $("editdoc").addEventListener("click",()=>openStudio(r));
+  if($("editdoc")) $("editdoc").addEventListener("click",()=>viewStudio(r));
   if($("editmeta")) $("editmeta").addEventListener("click",()=>viewForm(r));
   if($("submit")) $("submit").addEventListener("click",()=>runRpc("submit_for_review",{p_id:r.id},r.id));
   if($("approve")) $("approve").addEventListener("click",()=>runRpc("approve_agreement",{p_id:r.id,p_note:null},r.id));
@@ -444,28 +440,54 @@ async function viewAudit(){
   </tbody></table>`:'<div class="muted">No activity yet.</div>';
 }
 
-/* ===================== Embedded document editor (full Studio) ===================== */
+/* ===================== Embedded document editor (full Studio, as a tab) ===================== */
 let currentEdit=null;
-function openStudio(r){
-  currentEdit=r;
-  const f=$("studioFrame");
-  f.src="studio.html?ts="+Date.now();   // fresh load each time
-  $("studioOverlay").classList.remove("hidden");
+function viewStudio(rec){
+  currentEdit = rec || null;
+  currentTab = "new"; renderNav();
+  const m=$("main");
+  m.innerHTML = `<div class="row" style="margin-bottom:8px;align-items:center">
+      <div class="eyebrow">${rec?"Edit document":"New agreement"}</div>
+      <span class="muted" style="margin-left:8px">${rec?esc(rec.title||""):"Pick a template, fill it in, then “Save to cloud” — it’s added to Agreements automatically."}</span>
+      <div class="spacer"></div>
+      <button class="btn sm" id="stClose">${rec?"← Back to agreement":"← Back to list"}</button>
+    </div>
+    <iframe id="studioFrame" title="Document editor" style="width:100%;height:calc(100vh - 168px);border:1px solid var(--line);border-radius:10px;background:#fff"></iframe>`;
+  $("studioFrame").src = "studio.html?ts="+Date.now();
+  $("stClose").addEventListener("click",()=>closeStudio());
 }
-function closeStudio(){ $("studioOverlay").classList.add("hidden"); $("studioFrame").src="about:blank"; if(currentEdit){ const id=currentEdit.id; currentEdit=null; viewDetail(id); } }
+function closeStudio(){
+  if(currentEdit){ const id=currentEdit.id; currentEdit=null; viewDetail(id); }
+  else openTab("agreements");
+}
 async function saveStudioDraft(d){
-  if(!currentEdit||!d) return;
-  const patch={ data:d };
-  // keep the record's headline fields in sync with the drafted document
-  try{
-    if(d.title && (!currentEdit.title || currentEdit.title===currentEdit.template_key)) patch.title=d.title;
-    const cp=d.fields&&d.fields.cpName; if(cp) patch.counterparty=cp;
-  }catch(e){}
-  const { error }=await sb.from("agreements").update(patch).eq("id",currentEdit.id);
-  if(error){ alert("Save failed: "+error.message); return; }
-  currentEdit=Object.assign(currentEdit,patch);
-  await audit("edited","agreement",currentEdit.id,"document updated in editor");
-  flashTop("Saved to cloud ✓");
+  if(!d){ return; }
+  const cp = (d.fields && d.fields.cpName) || "";
+  const baseTitle = d.title || "Agreement";
+  const title = cp ? (baseTitle + " — " + cp) : baseTitle;
+  const cat = d.cat || null;                 // client | vendor | module (from the Studio draft)
+  const tplKey = d.templateKey || null;
+  if(!currentEdit){
+    // FIRST save → create the Agreements dashboard entry from what was filled
+    const rec={ title, counterparty:cp||null, category:cat, template_key:tplKey, status:"draft", created_by:me.id, data:d };
+    const { data:ins, error }=await sb.from("agreements").insert(rec).select().single();
+    if(error){ alert("Save failed: "+error.message); return; }
+    currentEdit=ins;
+    await audit("created","agreement",ins.id,title);
+    flashTop("Added to Agreements ✓");
+  } else {
+    // later saves → update the record + keep headline fields in sync
+    const patch={ data:d };
+    if(cp) patch.counterparty=cp;
+    if(title) patch.title=title;
+    if(cat && !currentEdit.category) patch.category=cat;
+    if(tplKey && !currentEdit.template_key) patch.template_key=tplKey;
+    const { error }=await sb.from("agreements").update(patch).eq("id",currentEdit.id);
+    if(error){ alert("Save failed: "+error.message); return; }
+    currentEdit=Object.assign(currentEdit,patch);
+    await audit("edited","agreement",currentEdit.id,"document updated in editor");
+    flashTop("Saved to cloud ✓");
+  }
 }
 window.addEventListener("message",function(ev){
   const f=$("studioFrame"); if(!f || ev.source!==f.contentWindow) return;   // only our editor
